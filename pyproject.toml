@@ -1,0 +1,63 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "taskengine"
+version = "0.1.0"
+description = "Autonomous task-execution engine powered by LangChain, LangGraph, and Pinecone"
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.9"
+authors = [
+    { name = "ZenCodeLab" },
+]
+
+dependencies = [
+    # LLM & Agent Framework
+    "langchain>=0.3.0",
+    "langchain-openai>=0.3.0",
+    "langchain-community>=0.3.0",
+    "langgraph>=0.3.0",
+
+    # Vector Store
+    "langchain-pinecone>=0.2.0",
+    "pinecone>=5.0.0",
+
+    # Data Validation
+    "pydantic>=2.0.0",
+    "pydantic-settings>=2.0.0",
+
+    # API Server
+    "fastapi>=0.115.0",
+    "uvicorn[standard]>=0.32.0",
+
+    # CLI
+    "typer>=0.15.0",
+    "rich>=13.0.0",
+
+    # Utilities
+    "python-dotenv>=1.0.0",
+    "httpx>=0.28.0",
+    "eval_type_backport>=0.2.0",
+
+    # Search
+    "duckduckgo-search>=7.0.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0.0",
+    "pytest-asyncio>=0.25.0",
+    "pytest-mock>=3.14.0",
+]
+
+[project.scripts]
+taskengine = "cli:app"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/taskengine"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
