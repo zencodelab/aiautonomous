@@ -33,6 +33,7 @@ def mock_settings():
     settings.max_steps = 15
     settings.max_replans = 2
     settings.step_timeout_seconds = 30
+    settings.quality_threshold = 0.6
     settings.workspace_dir = "./test_workspace"
     settings.workspace_path = MagicMock()
     return settings
@@ -202,3 +203,55 @@ class TestTaskEngine:
 
             assert isinstance(plan, TaskPlan)
             assert len(plan.steps) == 2
+
+    @pytest.mark.asyncio
+    async def test_quality_threshold_respected(self, mock_settings, sample_plan):
+        """A score below the configured quality_threshold fails the run."""
+        # Raise the bar above the score the reflector will return.
+        mock_settings.quality_threshold = 0.95
+
+        # 0.9 clears the default 0.6 but not the custom 0.95 bar, and
+        # needs_replan is False so the engine does not re-plan.
+        borderline_reflection = ReflectionResult(
+            quality_score=0.9,
+            assessment="Good, but below the raised bar.",
+            needs_replan=False,
+        )
+        step_result = StepResult(
+            step_id="s1",
+            step_order=1,
+            step_description="Step 1",
+            output="Result",
+            success=True,
+            duration_seconds=1.0,
+        )
+
+        with (
+            patch("taskengine.engine.KnowledgeStore") as MockStore,
+            patch("taskengine.engine.TaskPlanner") as MockPlanner,
+            patch("taskengine.engine.StepExecutor") as MockExecutor,
+            patch("taskengine.engine.TaskReflector") as MockReflector,
+            patch("taskengine.engine.ChatOpenAI") as MockLLM,
+            patch("taskengine.engine.set_workspace"),
+            patch("taskengine.engine.create_knowledge_tool", return_value=MagicMock()),
+        ):
+            MockPlanner.return_value.plan = AsyncMock(return_value=sample_plan)
+            MockExecutor.return_value.execute_step = AsyncMock(
+                return_value=step_result
+            )
+            MockReflector.return_value.reflect = AsyncMock(
+                return_value=borderline_reflection
+            )
+            mock_summary_msg = MagicMock()
+            mock_summary_msg.content = "Summary."
+            MockLLM.return_value.ainvoke = AsyncMock(return_value=mock_summary_msg)
+            MockStore.return_value.add_task_execution = MagicMock()
+
+            from taskengine.engine import TaskEngine
+
+            engine = TaskEngine(mock_settings)
+            report = await engine.run("Test task")
+
+            assert report.success is False
+            assert report.replan_count == 0
+            assert report.plan.status == PlanStatus.FAILED

@@ -57,6 +57,14 @@ class Settings(BaseSettings):
     step_timeout_seconds: int = Field(
         default=120, ge=10, le=600, description="Timeout per step execution"
     )
+    quality_threshold: float = Field(
+        default=0.6,
+        ge=0.0,
+        le=1.0,
+        description="Minimum reflector quality score (0.0–1.0) for a task to "
+        "be considered successful. Scores below this trigger re-planning and, "
+        "once re-plans are exhausted, mark the run as failed.",
+    )
 
     # ── API Server ──────────────────────────────────────────────────────
     api_host: str = Field(default="0.0.0.0", description="API server host")
