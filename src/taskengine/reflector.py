@@ -23,7 +23,7 @@ logger = logging.getLogger(__name__)
 
 # ── System prompt for the reflector LLM ────────────────────────────────────
 
-REFLECTOR_SYSTEM_PROMPT = """\
+REFLECTOR_SYSTEM_PROMPT_TEMPLATE = """\
 You are a quality assurance reviewer for an autonomous task execution engine.
 
 Your job is to evaluate whether a sequence of executed steps adequately
@@ -48,7 +48,7 @@ satisfies the user's original query.
 Return a JSON object matching the ReflectionResult schema:
 - `quality_score`: float from 0.0 to 1.0
 - `assessment`: detailed explanation of your evaluation
-- `needs_replan`: true if quality_score < 0.6 or critical issues found
+- `needs_replan`: true if quality_score < {threshold} or critical issues found
 - `suggestions`: list of specific improvements (if needs_replan is true)
 - `revised_query`: optional refined query for re-planning
 """
@@ -64,6 +64,11 @@ class TaskReflector:
             temperature=0.0,  # Deterministic for evaluation
             api_key=settings.openai_api_key,
             max_retries=3,
+        )
+        # Bake the configured pass/fail threshold into the system prompt so the
+        # reflector's re-plan guidance always matches Settings.quality_threshold.
+        self._system_prompt = REFLECTOR_SYSTEM_PROMPT_TEMPLATE.format(
+            threshold=settings.quality_threshold
         )
 
     async def reflect(
@@ -95,7 +100,7 @@ class TaskReflector:
         )
 
         messages = [
-            SystemMessage(content=REFLECTOR_SYSTEM_PROMPT),
+            SystemMessage(content=self._system_prompt),
             HumanMessage(content=eval_prompt),
         ]
 

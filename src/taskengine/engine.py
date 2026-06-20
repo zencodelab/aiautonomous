@@ -160,7 +160,8 @@ class TaskEngine:
             break
 
         # Phase 5: Generate summary
-        plan.status = PlanStatus.COMPLETED if reflection.quality_score >= 0.6 else PlanStatus.FAILED
+        passed = reflection.quality_score >= self._settings.quality_threshold
+        plan.status = PlanStatus.COMPLETED if passed else PlanStatus.FAILED
         summary = await self._generate_summary(query, results)
 
         elapsed = time.monotonic() - start_time
@@ -172,7 +173,7 @@ class TaskEngine:
             reflection=reflection,
             summary=summary,
             total_duration_seconds=round(elapsed, 2),
-            success=reflection.quality_score >= 0.6,
+            success=passed,
             replan_count=replan_count,
         )
 
