@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from pydantic import Field
+from pydantic import Field, ValidationError
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -84,6 +84,29 @@ class Settings(BaseSettings):
         return path
 
 
+class ConfigurationError(RuntimeError):
+    """Raised when required environment variables are missing or invalid."""
+
+
 def get_settings() -> Settings:
-    """Create and return a Settings instance (cached per call-site if needed)."""
-    return Settings()  # type: ignore[call-arg]
+    """Create and return a Settings instance, raising ConfigurationError on missing vars."""
+    try:
+        return Settings()  # type: ignore[call-arg]
+    except ValidationError as exc:
+        missing = [
+            err["loc"][0]
+            for err in exc.errors()
+            if err.get("type") in ("missing", "value_error.missing")
+        ]
+        if missing:
+            _REQUIRED_DOCS = {
+                "openai_api_key": "OPENAI_API_KEY — obtain from https://platform.openai.com/api-keys",
+                "pinecone_api_key": "PINECONE_API_KEY — obtain from https://app.pinecone.io",
+            }
+            lines = ["Missing required environment variables:\n"]
+            for field in missing:
+                hint = _REQUIRED_DOCS.get(str(field), str(field).upper())
+                lines.append(f"  • {hint}")
+            lines.append("\nSet them in a .env file at the project root or export them in your shell.")
+            raise ConfigurationError("\n".join(lines)) from exc
+        raise ConfigurationError(f"Configuration error: {exc}") from exc
