@@ -156,7 +156,7 @@ def run(
     from dotenv import load_dotenv
     load_dotenv()
 
-    from taskengine.config import get_settings
+    from taskengine.config import ConfigurationError, get_settings
     from taskengine.engine import TaskEngine
 
     console.print(
@@ -168,7 +168,11 @@ def run(
         )
     )
 
-    settings = get_settings()
+    try:
+        settings = get_settings()
+    except ConfigurationError as exc:
+        console.print(Panel(f"[red]{exc}[/red]", title="⚠️  Configuration Error", border_style="red"))
+        raise typer.Exit(code=1)
 
     with Progress(
         SpinnerColumn(),
@@ -195,10 +199,14 @@ def plan(
     from dotenv import load_dotenv
     load_dotenv()
 
-    from taskengine.config import get_settings
+    from taskengine.config import ConfigurationError, get_settings
     from taskengine.engine import TaskEngine
 
-    settings = get_settings()
+    try:
+        settings = get_settings()
+    except ConfigurationError as exc:
+        console.print(Panel(f"[red]{exc}[/red]", title="⚠️  Configuration Error", border_style="red"))
+        raise typer.Exit(code=1)
     engine = TaskEngine(settings)
     task_plan = asyncio.run(engine.plan_only(query))
 
@@ -275,10 +283,14 @@ def knowledge_add(
 
     content = path.read_text(encoding="utf-8")
 
-    from taskengine.config import get_settings
+    from taskengine.config import ConfigurationError, get_settings
     from taskengine.vectorstore import KnowledgeStore
 
-    settings = get_settings()
+    try:
+        settings = get_settings()
+    except ConfigurationError as exc:
+        console.print(Panel(f"[red]{exc}[/red]", title="⚠️  Configuration Error", border_style="red"))
+        raise typer.Exit(code=1)
     store = KnowledgeStore(settings)
 
     # Split into chunks if the file is large
