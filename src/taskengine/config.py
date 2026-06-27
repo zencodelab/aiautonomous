@@ -29,7 +29,9 @@ class Settings(BaseSettings):
     )
 
     # ── Pinecone Vector Database ────────────────────────────────────────
-    pinecone_api_key: str = Field(description="Pinecone API key")
+    # Optional: when absent, knowledge-store features are silently disabled
+    # and `cli.py plan` / dry-run modes work without a Pinecone account.
+    pinecone_api_key: str | None = Field(default=None, description="Pinecone API key (optional)")
     pinecone_index_name: str = Field(
         default="taskengine-knowledge", description="Pinecone index name"
     )
@@ -101,7 +103,6 @@ def get_settings() -> Settings:
         if missing:
             _REQUIRED_DOCS = {
                 "openai_api_key": "OPENAI_API_KEY — obtain from https://platform.openai.com/api-keys",
-                "pinecone_api_key": "PINECONE_API_KEY — obtain from https://app.pinecone.io",
             }
             lines = ["Missing required environment variables:\n"]
             for field in missing:
