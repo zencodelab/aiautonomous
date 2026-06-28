@@ -255,3 +255,46 @@ class TestTaskEngine:
             assert report.success is False
             assert report.replan_count == 0
             assert report.plan.status == PlanStatus.FAILED
+
+
+class TestTaskEngineNoPinecone:
+    """Verify TaskEngine works when PINECONE_API_KEY is absent."""
+
+    def test_engine_init_without_pinecone(self, mock_settings):
+        """Engine initialises successfully with pinecone_api_key=None."""
+        mock_settings.pinecone_api_key = None
+
+        with (
+            patch("taskengine.engine.TaskPlanner"),
+            patch("taskengine.engine.StepExecutor"),
+            patch("taskengine.engine.TaskReflector"),
+            patch("taskengine.engine.ChatOpenAI"),
+            patch("taskengine.engine.set_workspace"),
+            patch("taskengine.engine.create_knowledge_tool", return_value=MagicMock()),
+        ):
+            from taskengine.engine import TaskEngine
+
+            engine = TaskEngine(mock_settings)
+            assert engine._knowledge_store is None
+            # knowledge tool is NOT in the tool list when store is absent
+            assert not any(
+                getattr(t, "name", None) == "search_knowledge"
+                for t in engine._tools
+            )
+
+    def test_add_knowledge_without_pinecone_raises(self, mock_settings):
+        """add_knowledge raises RuntimeError when the store is disabled."""
+        mock_settings.pinecone_api_key = None
+
+        with (
+            patch("taskengine.engine.TaskPlanner"),
+            patch("taskengine.engine.StepExecutor"),
+            patch("taskengine.engine.TaskReflector"),
+            patch("taskengine.engine.ChatOpenAI"),
+            patch("taskengine.engine.set_workspace"),
+        ):
+            from taskengine.engine import TaskEngine
+
+            engine = TaskEngine(mock_settings)
+            with pytest.raises(RuntimeError, match="PINECONE_API_KEY"):
+                engine.add_knowledge(["some text"])

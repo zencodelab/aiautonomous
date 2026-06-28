@@ -40,33 +40,48 @@ def _make_validation_error(fields: list[str]) -> ValidationError:
     )
 
 
-def test_get_settings_missing_keys_raises_configuration_error():
-    """Missing required env vars produce ConfigurationError with helpful hints."""
-    # Build a real ValidationError by passing an empty dict to Settings
-    # (bypass env-file loading by directly creating the error via Pydantic)
-    with patch("taskengine.config.Settings", side_effect=_make_missing_validation_error(["openai_api_key", "pinecone_api_key"])):
-        with pytest.raises(ConfigurationError) as exc_info:
-            get_settings()
-
-    msg = str(exc_info.value)
-    assert "OPENAI_API_KEY" in msg
-    assert "PINECONE_API_KEY" in msg
-    assert ".env" in msg
-
-
-def test_get_settings_missing_openai_key_only():
-    """Only the missing key is reported."""
+def test_get_settings_missing_openai_key_raises_configuration_error():
+    """Missing OPENAI_API_KEY produces ConfigurationError with helpful hint."""
     with patch("taskengine.config.Settings", side_effect=_make_missing_validation_error(["openai_api_key"])):
         with pytest.raises(ConfigurationError) as exc_info:
             get_settings()
 
     msg = str(exc_info.value)
     assert "OPENAI_API_KEY" in msg
+    assert ".env" in msg
+
+
+def test_get_settings_missing_openai_key_only():
+    """Only the missing key is reported; optional keys are not mentioned."""
+    with patch("taskengine.config.Settings", side_effect=_make_missing_validation_error(["openai_api_key"])):
+        with pytest.raises(ConfigurationError) as exc_info:
+            get_settings()
+
+    msg = str(exc_info.value)
+    assert "OPENAI_API_KEY" in msg
+    # Pinecone is now optional — not expected in error output
     assert "PINECONE_API_KEY" not in msg
 
 
-def test_get_settings_with_all_required_keys(monkeypatch):
-    """When required vars are present, Settings loads without error."""
+def test_get_settings_pinecone_key_optional(monkeypatch):
+    """Settings loads successfully when PINECONE_API_KEY is absent."""
+    # Patch _settings_build_values so the .env file is bypassed entirely,
+    # then supply only the OpenAI key — Pinecone must default to None.
+    with patch.dict(
+        "os.environ",
+        {"OPENAI_API_KEY": "sk-test"},
+        clear=True,  # wipes all env vars including any .env that pydantic-settings read
+    ):
+        with patch("taskengine.config.Settings.model_config", {"extra": "ignore"}):
+            # Use model_validate to bypass env-file loading
+            settings = Settings.model_validate({"openai_api_key": "sk-test"})
+
+    assert settings.openai_api_key == "sk-test"
+    assert settings.pinecone_api_key is None
+
+
+def test_get_settings_with_all_keys(monkeypatch):
+    """When all vars are present, Settings loads without error."""
     monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
     monkeypatch.setenv("PINECONE_API_KEY", "pc-test")
 

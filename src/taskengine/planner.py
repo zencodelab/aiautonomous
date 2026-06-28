@@ -36,6 +36,7 @@ consisting of ordered, atomic steps that a ReAct agent can execute.
 2. **Order matters**: Steps are executed sequentially. Put dependencies first.
 3. **Tool hints**: Suggest which tool is best for each step. Available tools:
    - `web_search` — Search the internet for information
+   - `http_fetch` — Retrieve the full text of a known URL (docs, APIs, raw files)
    - `calculate` — Evaluate mathematical expressions
    - `execute_python` — Run Python code snippets
    - `read_file` / `write_file` — File operations in the workspace

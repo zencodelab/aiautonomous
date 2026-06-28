@@ -37,6 +37,7 @@ from taskengine.reflector import TaskReflector
 from taskengine.tools import (
     calculate,
     execute_python,
+    http_fetch,
     list_directory,
     read_file,
     web_search,
@@ -70,22 +71,31 @@ class TaskEngine:
         # Configure workspace for file tools
         set_workspace(settings.workspace_path)
 
-        # Initialise components
-        self._knowledge_store = KnowledgeStore(settings)
+        # Initialise components — KnowledgeStore is optional (requires Pinecone)
+        if settings.pinecone_api_key:
+            self._knowledge_store: KnowledgeStore | None = KnowledgeStore(settings)
+        else:
+            self._knowledge_store = None
+            logger.info(
+                "PINECONE_API_KEY not set — knowledge store disabled. "
+                "Planning and execution work without it."
+            )
+
         self._planner = TaskPlanner(settings, self._knowledge_store)
         self._reflector = TaskReflector(settings)
 
-        # Build the tool set
-        knowledge_tool = create_knowledge_tool(self._knowledge_store)
+        # Build the tool set — knowledge tool only when store is available
         self._tools = [
             web_search,
+            http_fetch,
             calculate,
             execute_python,
             read_file,
             write_file,
             list_directory,
-            knowledge_tool,
         ]
+        if self._knowledge_store is not None:
+            self._tools.append(create_knowledge_tool(self._knowledge_store))
 
         self._executor = StepExecutor(settings, self._tools)
 
@@ -177,12 +187,13 @@ class TaskEngine:
             replan_count=replan_count,
         )
 
-        # Store execution in Pinecone for future reference
-        try:
-            self._knowledge_store.add_task_execution(report)
-            logger.info("Execution stored in knowledge base.")
-        except Exception as exc:
-            logger.warning("Failed to store execution: %s", exc)
+        # Store execution in Pinecone for future reference (skipped when disabled)
+        if self._knowledge_store is not None:
+            try:
+                self._knowledge_store.add_task_execution(report)
+                logger.info("Execution stored in knowledge base.")
+            except Exception as exc:
+                logger.warning("Failed to store execution: %s", exc)
 
         self._emit("completed", {
             "success": report.success,
@@ -223,6 +234,10 @@ class TaskEngine:
         Returns:
             List of document IDs.
         """
+        if self._knowledge_store is None:
+            raise RuntimeError(
+                "Knowledge store is disabled — set PINECONE_API_KEY to enable it."
+            )
         return self._knowledge_store.add_knowledge(texts, metadatas)
 
     # ── Private helpers ─────────────────────────────────────────────────

@@ -33,6 +33,11 @@ class KnowledgeStore:
     """
 
     def __init__(self, settings: Settings) -> None:
+        if not settings.pinecone_api_key:
+            raise ValueError(
+                "PINECONE_API_KEY is not set. "
+                "KnowledgeStore requires a Pinecone API key."
+            )
         self._settings = settings
         self._embeddings = OpenAIEmbeddings(
             model="text-embedding-3-small",

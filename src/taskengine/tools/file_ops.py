@@ -24,7 +24,7 @@ def _resolve(relative_path: str) -> Path:
     if _WORKSPACE is None:
         raise RuntimeError("Workspace not configured. Call set_workspace() first.")
     resolved = (_WORKSPACE / relative_path).resolve()
-    if not str(resolved).startswith(str(_WORKSPACE)):
+    if not resolved.is_relative_to(_WORKSPACE):
         raise PermissionError(
             f"Path escapes workspace sandbox: {relative_path}"
         )
