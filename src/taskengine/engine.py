@@ -37,6 +37,7 @@ from taskengine.reflector import TaskReflector
 from taskengine.tools import (
     calculate,
     execute_python,
+    http_fetch,
     list_directory,
     read_file,
     web_search,
@@ -86,6 +87,7 @@ class TaskEngine:
         # Build the tool set — knowledge tool only when store is available
         self._tools = [
             web_search,
+            http_fetch,
             calculate,
             execute_python,
             read_file,
